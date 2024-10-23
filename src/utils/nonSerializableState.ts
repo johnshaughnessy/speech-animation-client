@@ -1,4 +1,3 @@
-const nonSerializableState = {};
-window.APP = window.APP || {};
-window.APP.nonSerializableState = nonSerializableState;
-export default nonSerializableState;
+const state = {};
+window.APP = state;
+export default state;
