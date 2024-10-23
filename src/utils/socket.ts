@@ -89,11 +89,8 @@ export function send(socket, name, data = null) {
 export function on(socket, name, callback) {
     // Check if a listener with this name already exists. If so, log an error.
     const existingListener = socket.listeners.find((listener) => listener.name === name);
-    if (existingListener) {
-        console.error(
-            "A listener with this name already exists. You must remove it before adding a new one.",
-            existingListener,
-        );
+    if (existingListener && name !== "disconnect") {
+        console.error("A listener with the same name exists.", existingListener);
         return;
     }
     socket.listeners.push({ name, callback });

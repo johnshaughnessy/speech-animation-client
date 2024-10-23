@@ -6,7 +6,7 @@ export interface WebRTCConnection {
     closeWebRTC: () => void;
 }
 
-export function setupWebRTC(socket) {
+export function setupWebRTC(socket, anyEventCallback) {
     let connection: WebRTCConnection = {
         pc: null,
         startWebRTC: null,
@@ -14,17 +14,20 @@ export function setupWebRTC(socket) {
     };
 
     async function onIceCandidate(event) {
+        anyEventCallback();
         if (event.candidate) {
-            send(socket, "webrtc_candidate_message", { candidate: event.candidate });
+            send(socket, "webrtc_icecandidate", { candidate: event.candidate });
         }
     }
     async function onConnectionStateChange(event) {
+        anyEventCallback();
         if (connection.pc.connectionState === "disconnected" || connection.pc.connectionState === "failed") {
             await closeWebRTC();
         }
     }
 
     async function onTrack(event) {
+        anyEventCallback();
         const audio = document.getElementById("audio");
         if (event.track.kind === "audio" && !audio.srcObject && event.streams[0]) {
             audio.srcObject = event.streams[0];
@@ -38,6 +41,7 @@ export function setupWebRTC(socket) {
                 video: false,
             });
         } catch (error) {
+            console.error("Error getting media stream:", error);
             return null;
         }
     }
@@ -47,12 +51,14 @@ export function setupWebRTC(socket) {
             closeWebRTC();
         });
 
-        on(socket, "session_response", async (data) => {
+        on(socket, "webrtc_sdp_answer", async (data) => {
+            anyEventCallback();
             const description = new RTCSessionDescription(data);
             await connection.pc.setRemoteDescription(description);
         });
 
-        on(socket, "candidate_response", async (data) => {
+        on(socket, "webrtc_icecandidate", async (data) => {
+            anyEventCallback();
             const candidate = new RTCIceCandidate(data.candidate);
             await connection.pc.addIceCandidate(candidate);
         });
@@ -72,9 +78,12 @@ export function setupWebRTC(socket) {
             stream.getTracks().forEach((track) => {
                 connection.pc.addTrack(track, stream);
             });
+            anyEventCallback();
             const offer = await connection.pc.createOffer();
+            anyEventCallback();
             await connection.pc.setLocalDescription(offer);
-            await send(socket, "webrtc_session_message", { sdp: offer });
+            anyEventCallback();
+            await send(socket, "webrtc_sdp_offer", { sdp: offer });
         } catch (error) {
             console.error("Error starting WebRTC:", error);
             closeWebRTC();
@@ -86,6 +95,7 @@ export function setupWebRTC(socket) {
             await connection.pc.close();
             connection.pc = null;
         }
+        anyEventCallback();
     }
 
     connection.startWebRTC = startWebRTC;

@@ -5,6 +5,7 @@ const slice = createSlice({
     initialState: {
         sessionId: null,
         socketConnected: false,
+        webRTCEventCount: 0,
     },
     reducers: {
         setSessionId: (state, action) => {
@@ -14,8 +15,11 @@ const slice = createSlice({
             console.log("setSocketConnected", action.payload);
             state.socketConnected = action.payload;
         },
+        incrementWebRTCEventCount: (state) => {
+            state.webRTCEventCount += 1;
+        },
     },
 });
 
-export const { setSessionId, setSocketConnected } = slice.actions;
+export const { setSessionId, setSocketConnected, incrementWebRTCEventCount } = slice.actions;
 export default slice.reducer;
