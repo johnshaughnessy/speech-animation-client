@@ -3,14 +3,14 @@ import { on, send } from "./socket.ts";
 export interface WebRTCConnection {
     pc: RTCPeerConnection;
     startWebRTC: () => void;
-    closeWebRTC: () => void;
+    stopWebRTC: () => void;
 }
 
 export function setupWebRTC(socket, anyEventCallback) {
     let connection: WebRTCConnection = {
         pc: null,
         startWebRTC: null,
-        closeWebRTC: null,
+        stopWebRTC: null,
     };
 
     async function onIceCandidate(event) {
@@ -22,15 +22,18 @@ export function setupWebRTC(socket, anyEventCallback) {
     async function onConnectionStateChange(event) {
         anyEventCallback();
         if (connection.pc.connectionState === "disconnected" || connection.pc.connectionState === "failed") {
-            await closeWebRTC();
+            await stopWebRTC();
         }
     }
 
     async function onTrack(event) {
         anyEventCallback();
+        window.stream = event.streams[0];
         const audio = document.getElementById("audio");
         if (event.track.kind === "audio" && !audio.srcObject && event.streams[0]) {
             audio.srcObject = event.streams[0];
+        } else {
+            console.warn("not adding track to audio elem");
         }
     }
 
@@ -48,7 +51,7 @@ export function setupWebRTC(socket, anyEventCallback) {
 
     async function startWebRTC() {
         on(socket, "disconnect", () => {
-            closeWebRTC();
+            stopWebRTC();
         });
 
         on(socket, "webrtc_sdp_answer", async (data) => {
@@ -72,7 +75,7 @@ export function setupWebRTC(socket, anyEventCallback) {
             connection.pc.ontrack = onTrack;
             const stream = await getMediaStream();
             if (!stream) {
-                closeWebRTC();
+                stopWebRTC();
                 return;
             }
             stream.getTracks().forEach((track) => {
@@ -86,11 +89,13 @@ export function setupWebRTC(socket, anyEventCallback) {
             await send(socket, "webrtc_sdp_offer", { sdp: offer });
         } catch (error) {
             console.error("Error starting WebRTC:", error);
-            closeWebRTC();
+            stopWebRTC();
         }
     }
 
-    async function closeWebRTC() {
+    async function stopWebRTC() {
+        // TODO: off("webrtc_sdp_answer");
+        // TODO: off("webrtc_icecandidate");
         if (connection.pc) {
             await connection.pc.close();
             connection.pc = null;
@@ -99,7 +104,7 @@ export function setupWebRTC(socket, anyEventCallback) {
     }
 
     connection.startWebRTC = startWebRTC;
-    connection.closeWebRTC = closeWebRTC;
+    connection.stopWebRTC = stopWebRTC;
 
     return connection;
 }
